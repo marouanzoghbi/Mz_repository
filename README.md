@@ -47,12 +47,20 @@ npm run dev                                 # API on :4000, web on :5173
 
 ## Deploying
 
-See [`docs/DEPLOY_RAILWAY.md`](docs/DEPLOY_RAILWAY.md) to deploy to Railway
-(managed Postgres + Dockerized API/web services), so the dashboard is reachable
-from any device, including your phone. The dashboard UI is responsive down to
-phone widths. `apps/api/Dockerfile` and `apps/web/Dockerfile` are generic
-production Dockerfiles, usable on any Docker host if you'd rather not use
-Railway.
+The dashboard UI is responsive down to phone widths, so once deployed it's
+usable from any device.
+
+- **[`docs/DEPLOY_RENDER.md`](docs/DEPLOY_RENDER.md)** (recommended to start) —
+  free, no credit card: a single Docker service (root `Dockerfile`, builds
+  both apps and serves them from one Express process/one domain) on Render's
+  free tier + a free Neon Postgres database. Tradeoff: the free instance
+  spins down after ~15 min idle (first request after that takes ~30–50s).
+- **[`docs/DEPLOY_RAILWAY.md`](docs/DEPLOY_RAILWAY.md)** — always-on, paid
+  ($5+/mo): separate API and web services (`apps/api/Dockerfile` /
+  `apps/web/Dockerfile`) + managed Postgres.
+
+Both are generic Dockerfiles usable on any Docker host if you'd rather not use
+either platform.
 
 ## Project layout
 
