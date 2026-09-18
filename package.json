@@ -1,0 +1,24 @@
+{
+  "name": "energy-automation-dashboard",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Dashboard that unifies eWeLink and Deye Cloud devices and runs cross-platform automations",
+  "workspaces": [
+    "apps/api",
+    "apps/web"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace apps/api & npm run dev --workspace apps/web",
+    "dev:api": "npm run dev --workspace apps/api",
+    "dev:web": "npm run dev --workspace apps/web",
+    "build": "npm run build --workspace apps/api && npm run build --workspace apps/web",
+    "lint": "npm run lint --workspace apps/api && npm run lint --workspace apps/web",
+    "typecheck": "npm run typecheck --workspace apps/api && npm run typecheck --workspace apps/web",
+    "test": "npm run test --workspace apps/api",
+    "prisma:generate": "npm run prisma:generate --workspace apps/api",
+    "prisma:migrate": "npm run prisma:migrate --workspace apps/api"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
