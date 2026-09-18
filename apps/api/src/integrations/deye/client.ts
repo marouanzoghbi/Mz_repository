@@ -47,9 +47,13 @@ async function request<T>(path: string, init: { method: "GET" | "POST"; body?: u
   }
 
   const json = (await res.json()) as { code?: string | number; msg?: string };
-  // Deye's success code is typically "0" / 0 / "1000000" depending on endpoint generation;
-  // treat only explicit non-empty error codes as failures rather than guessing the exact success sentinel.
-  if (json.code !== undefined && json.code !== null && String(json.code) !== "0" && json.msg) {
+  // Deye's success sentinel is the string "1000000" (a Solarman OpenAPI convention
+  // Deye Cloud inherits), not "0" — confirmed from a live token-exchange response
+  // of {code: 1000000, msg: "success"}. Some endpoints may also omit `code` or use
+  // literal 0, so treat both of those as success too; anything else with a `msg` is an error.
+  const codeStr = json.code === undefined || json.code === null ? undefined : String(json.code);
+  const isSuccess = codeStr === undefined || codeStr === "0" || codeStr === "1000000";
+  if (!isSuccess && json.msg) {
     throw new HttpError(502, `Deye Cloud API error ${json.code}: ${json.msg}`);
   }
   return json as T;
