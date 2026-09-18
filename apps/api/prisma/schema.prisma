@@ -1,0 +1,161 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Provider {
+  EWELINK
+  DEYE
+}
+
+enum ConditionLogic {
+  AND
+  OR
+}
+
+enum ComparisonOperator {
+  EQ
+  NEQ
+  GT
+  GTE
+  LT
+  LTE
+}
+
+enum RunStatus {
+  SUCCESS
+  FAILURE
+  PARTIAL
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  integrationAccounts IntegrationAccount[]
+  devices             Device[]
+  automationRules     AutomationRule[]
+}
+
+/// One connected third-party account (eWeLink or Deye Cloud) per user.
+/// Tokens are stored encrypted (AES-256-GCM) via credentialService, never in plaintext.
+model IntegrationAccount {
+  id                String    @id @default(cuid())
+  userId            String
+  provider          Provider
+  externalAccountId String?
+  region            String?
+  accessTokenEnc    String
+  refreshTokenEnc   String?
+  tokenExpiresAt    DateTime?
+  scope             String?
+  connectedAt       DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  devices Device[]
+
+  @@unique([userId, provider])
+}
+
+/// Cached device inventory synced from the provider. lastState holds the most
+/// recent normalized reading (e.g. { "switch": "on" } or { "batterySoc": 42 }).
+model Device {
+  id                   String   @id @default(cuid())
+  userId               String
+  integrationAccountId String
+  provider             Provider
+  externalId           String
+  name                 String
+  deviceType           String
+  stationExternalId    String?
+  capabilities         Json     @default("{}")
+  lastState            Json     @default("{}")
+  lastSyncedAt         DateTime?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  integrationAccount IntegrationAccount @relation(fields: [integrationAccountId], references: [id], onDelete: Cascade)
+  conditions         AutomationCondition[]
+  actions            AutomationAction[]
+
+  @@unique([integrationAccountId, externalId])
+  @@index([userId])
+}
+
+/// A cross-platform automation rule: when its conditions evaluate true
+/// (combined with conditionLogic), its actions run, subject to cooldownSeconds.
+model AutomationRule {
+  id              String         @id @default(cuid())
+  userId          String
+  name            String
+  description     String?
+  enabled         Boolean        @default(true)
+  conditionLogic  ConditionLogic @default(AND)
+  cooldownSeconds Int            @default(300)
+  lastTriggeredAt DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  user       User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conditions AutomationCondition[]
+  actions    AutomationAction[]
+  runLogs    AutomationRunLog[]
+
+  @@index([userId])
+}
+
+/// One clause of a rule's condition group, e.g. "Deye battery SOC < 20".
+model AutomationCondition {
+  id       String             @id @default(cuid())
+  ruleId   String
+  deviceId String
+  metric   String
+  operator ComparisonOperator
+  value    String
+  order    Int                @default(0)
+
+  rule   AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  device Device         @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([ruleId])
+}
+
+/// One action a rule performs when triggered, e.g. "eWeLink switch X -> off".
+model AutomationAction {
+  id         String @id @default(cuid())
+  ruleId     String
+  deviceId   String
+  actionType String
+  params     Json   @default("{}")
+  order      Int    @default(0)
+
+  rule   AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  device Device         @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([ruleId])
+}
+
+/// Audit trail of every time a rule's conditions were met and it ran.
+model AutomationRunLog {
+  id                  String    @id @default(cuid())
+  ruleId              String
+  triggeredAt         DateTime  @default(now())
+  conditionsSnapshot  Json
+  actionsResult       Json
+  status              RunStatus
+  errorMessage        String?
+
+  rule AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  @@index([ruleId, triggeredAt])
+}
