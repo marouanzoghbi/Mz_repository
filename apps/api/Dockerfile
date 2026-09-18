@@ -3,6 +3,10 @@
 # "apps/api/Dockerfile" and its root directory to the repo root.
 
 FROM node:20-alpine AS build
+# Prisma's engine binaries are dynamically linked against OpenSSL, which
+# Alpine doesn't ship by default — without it, prisma generate/migrate fail
+# with a cryptic "Could not parse schema engine response" error.
+RUN apk add --no-cache openssl
 WORKDIR /repo
 
 COPY package.json package-lock.json ./
@@ -15,6 +19,7 @@ RUN npm run prisma:generate --workspace apps/api
 RUN npm run build --workspace apps/api
 
 FROM node:20-alpine AS runtime
+RUN apk add --no-cache openssl
 WORKDIR /repo
 ENV NODE_ENV=production
 
