@@ -1,3 +1,9 @@
+// In local dev this stays "/api" and Vite's dev-server proxy (vite.config.ts)
+// forwards it to the API. In production the web and API are typically deployed
+// as separate services on different domains, so the build needs to know the
+// API's public URL — set via VITE_API_BASE_URL at build time (see docs/DEPLOY_RAILWAY.md).
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "/api";
+
 const TOKEN_KEY = "energy_dashboard_token";
 
 export function getToken(): string | null {
@@ -29,7 +35,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     ...(init.headers as Record<string, string> | undefined),
   };
 
-  const res = await fetch(`/api${path}`, { ...init, headers });
+  const res = await fetch(`${API_BASE}${path}`, { ...init, headers });
 
   if (res.status === 204) return undefined as T;
 

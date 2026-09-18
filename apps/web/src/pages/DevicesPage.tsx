@@ -58,6 +58,7 @@ export function DevicesPage() {
       ) : devices.length === 0 ? (
         <p className="muted">No devices yet. Connect an integration and hit "Sync devices" first.</p>
       ) : (
+        <div className="table-scroll">
         <table className="table">
           <thead>
             <tr>
@@ -96,6 +97,7 @@ export function DevicesPage() {
             ))}
           </tbody>
         </table>
+        </div>
       )}
     </div>
   );

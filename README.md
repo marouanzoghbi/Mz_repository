@@ -45,6 +45,15 @@ npm run prisma:migrate --workspace apps/api
 npm run dev                                 # API on :4000, web on :5173
 ```
 
+## Deploying
+
+See [`docs/DEPLOY_RAILWAY.md`](docs/DEPLOY_RAILWAY.md) to deploy to Railway
+(managed Postgres + Dockerized API/web services), so the dashboard is reachable
+from any device, including your phone. The dashboard UI is responsive down to
+phone widths. `apps/api/Dockerfile` and `apps/web/Dockerfile` are generic
+production Dockerfiles, usable on any Docker host if you'd rather not use
+Railway.
+
 ## Project layout
 
 ```
