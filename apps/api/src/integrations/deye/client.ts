@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { env } from "../../config/env.js";
 import { HttpError } from "../../middleware/errorHandler.js";
+import { logger } from "../../utils/logger.js";
 import type {
   ControlCommand,
   DeviceState,
@@ -29,6 +30,25 @@ const ORDER_POLL_MAX_ATTEMPTS = 30;
 
 function sha256Hex(input: string): string {
   return createHash("sha256").update(input).digest("hex");
+}
+
+/** Normalizes a token response across the field-naming/nesting variants Deye's
+ * API is known to use (see the DeyeTokenResponse comment). Logs the response's
+ * top-level key names (never values) when extraction fails, so a still-unknown
+ * shape shows up directly in server logs instead of requiring more guesswork. */
+function extractTokenFields(json: DeyeTokenResponse): { accessToken?: string; refreshToken?: string; expiresIn?: number } {
+  const accessToken = json.access_token ?? json.accessToken ?? json.data?.access_token ?? json.data?.accessToken;
+  const refreshToken = json.refresh_token ?? json.refreshToken ?? json.data?.refresh_token ?? json.data?.refreshToken;
+  const expiresIn = json.expires_in ?? json.expiresIn ?? json.data?.expires_in ?? json.data?.expiresIn;
+
+  if (!accessToken) {
+    logger.error(
+      { topLevelKeys: Object.keys(json), dataKeys: json.data ? Object.keys(json.data) : undefined },
+      "Deye Cloud token response had no recognizable access token field",
+    );
+  }
+
+  return { accessToken, refreshToken, expiresIn };
 }
 
 async function request<T>(path: string, init: { method: "GET" | "POST"; body?: unknown; accessToken?: string }): Promise<T> {
@@ -90,17 +110,18 @@ export const deyeClient: ProviderClient = {
       body,
     });
 
-    if (!json.access_token) {
+    const { accessToken, expiresIn } = extractTokenFields(json);
+    if (!accessToken) {
       throw new HttpError(401, json.msg ?? "Deye Cloud login failed");
     }
 
     return {
-      accessToken: json.access_token,
+      accessToken,
       // Deye has no separate refresh-token endpoint; re-authenticating requires the
       // account credentials again, so we keep the pre-hashed password (never the
       // plaintext) to transparently re-login when the access token expires.
       refreshToken: body.password,
-      expiresAt: json.expires_in ? new Date(Date.now() + json.expires_in * 1000) : undefined,
+      expiresAt: expiresIn ? new Date(Date.now() + expiresIn * 1000) : undefined,
       externalAccountId: credentials.email,
       scope: credentials.companyId,
     };
@@ -125,10 +146,14 @@ export const deyeClient: ProviderClient = {
       method: "POST",
       body,
     });
+    const { accessToken, expiresIn } = extractTokenFields(json);
+    if (!accessToken) {
+      throw new HttpError(401, json.msg ?? "Deye Cloud session refresh failed");
+    }
     return {
-      accessToken: json.access_token,
+      accessToken,
       refreshToken: tokens.refreshToken,
-      expiresAt: json.expires_in ? new Date(Date.now() + json.expires_in * 1000) : undefined,
+      expiresAt: expiresIn ? new Date(Date.now() + expiresIn * 1000) : undefined,
       externalAccountId: email,
       scope: companyId,
     };
