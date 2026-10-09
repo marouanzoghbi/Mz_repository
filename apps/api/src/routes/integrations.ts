@@ -13,6 +13,7 @@ import {
 } from "../services/integrationAccountService.js";
 import { syncDevicesForProvider } from "../services/deviceSyncService.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { logger } from "../utils/logger.js";
 
 export const integrationsRouter = Router();
 
@@ -43,7 +44,9 @@ integrationsRouter.get(
 integrationsRouter.get(
   "/ewelink/callback",
   asyncHandler(async (req, res) => {
-    const { code, state } = z.object({ code: z.string(), state: z.string() }).parse(req.query);
+    const { code, state, region } = z
+      .object({ code: z.string(), state: z.string(), region: z.string().optional() })
+      .parse(req.query);
 
     let userId: string;
     try {
@@ -54,7 +57,11 @@ integrationsRouter.get(
       throw new HttpError(400, "Invalid or expired OAuth state");
     }
 
-    const tokens = await ewelinkClient.exchangeCodeForTokens!(code);
+    logger.info(
+      { configuredRegion: env.EWELINK_REGION, regionHint: region },
+      "eWeLink OAuth callback received; exchanging code for tokens",
+    );
+    const tokens = await ewelinkClient.exchangeCodeForTokens!(code, region);
     await saveIntegrationAccount(userId, "EWELINK", tokens);
     await syncDevicesForProvider(userId, "EWELINK").catch(() => undefined); // best-effort initial sync
 

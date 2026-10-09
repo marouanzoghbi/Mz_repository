@@ -48,9 +48,13 @@ export interface ProviderClient {
   readonly provider: ProviderName;
   readonly authMode: "oauth_redirect" | "password";
 
-  // oauth_redirect providers implement these:
+  // oauth_redirect providers implement these. `regionHint` carries a
+  // provider-reported region from the OAuth callback (e.g. eWeLink echoes
+  // the account's actual region on its redirect) — the exchange must target
+  // that region's server, not a guessed/default one, or it fails with an
+  // opaque "invalid code" error.
   getAuthorizeUrl?(state: string): string;
-  exchangeCodeForTokens?(code: string): Promise<ProviderTokens>;
+  exchangeCodeForTokens?(code: string, regionHint?: string): Promise<ProviderTokens>;
 
   // password providers implement this:
   loginWithPassword?(credentials: PasswordCredentials): Promise<ProviderTokens>;

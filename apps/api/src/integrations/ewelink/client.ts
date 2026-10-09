@@ -85,9 +85,13 @@ export const ewelinkClient: ProviderClient = {
     return `https://c2ccdn.coolkit.cc/oauth/index.html?${params.toString()}`;
   },
 
-  async exchangeCodeForTokens(code: string): Promise<ProviderTokens> {
+  async exchangeCodeForTokens(code: string, regionHint?: string): Promise<ProviderTokens> {
+    // The authorization code is only valid against the region that actually issued
+    // it — eWeLink echoes that real region back on the OAuth redirect (regionHint),
+    // which may differ from our configured default if that default was a guess.
+    const region = regionHint ?? env.EWELINK_REGION;
     const body = { redirectUrl: env.EWELINK_REDIRECT_URI, code, grantType: "authorization_code" };
-    const json = await request<EwelinkTokenResponse>(env.EWELINK_REGION, "/v2/user/oauth/token", {
+    const json = await request<EwelinkTokenResponse>(region, "/v2/user/oauth/token", {
       method: "POST",
       body,
     });
@@ -97,7 +101,7 @@ export const ewelinkClient: ProviderClient = {
       refreshToken: json.data.refreshToken,
       expiresAt: json.data.atExpiredTime ? new Date(json.data.atExpiredTime) : undefined,
       externalAccountId: json.data.user?.apikey,
-      region: json.data.region ?? env.EWELINK_REGION,
+      region: json.data.region ?? region,
     };
   },
 
